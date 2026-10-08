@@ -1,0 +1,31 @@
+# dependencies
+node_modules/
+**/node_modules/
+
+# build & caches
+dist/
+**/.next/
+**/out/
+.turbo/
+.cache/
+*.tsbuildinfo
+
+# env & secrets
+.env
+**/.env
+**/.env.local
+**/.env.*.local
+
+# docker / volumes
+docker-data/
+
+# logs
+*.log
+
+# OS / IDE
+.DS_Store
+.vscode/
+.idea/
+
+# test cache
+coverage/
