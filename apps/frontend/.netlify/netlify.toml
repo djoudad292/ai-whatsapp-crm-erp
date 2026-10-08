@@ -1,0 +1,33 @@
+headers = []
+redirects = []
+
+[functions]
+
+[functions."*"]
+
+[[plugins]]
+origin = "default"
+package = "@netlify/plugin-nextjs"
+
+[plugins.inputs]
+
+[build]
+publish = "/home/djaouad/ai-whatsapp-crm-erp/apps/frontend/apps/frontend/.next"
+publishOrigin = "ui"
+commandOrigin = "ui"
+base = "/home/djaouad/ai-whatsapp-crm-erp/apps/frontend"
+command = "npm --workspace frontend run build"
+
+[build.environment]
+
+[build.processing]
+
+[build.processing.css]
+
+[build.processing.html]
+
+[build.processing.images]
+
+[build.processing.js]
+
+[build.services]

@@ -29,3 +29,5 @@ docker-data/
 
 # test cache
 coverage/
+.vercel
+.env*
