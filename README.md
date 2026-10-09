@@ -1,6 +1,33 @@
 # AI WhatsApp -> CRM -> ERP
 
-Monorepo scaffold for the AI WhatsApp -> CRM -> ERP pipeline.
+Demo integration platform: a WhatsApp/Telegram-style message becomes a
+webhook, an LLM (or deterministic fallback) extracts intent, typed tools
+persist an order to PostgreSQL with a full audit trail, and a real
+`sale.order` can be written to Odoo. Dashboard: Next.js. Bot: Telegram live.
+
+Live demo: https://crm-djaouad.netlify.app/try · Bot: https://t.me/DjaouadcrmBot
+
+## 60-second demo (local)
+
+```bash
+docker compose up -d                      # postgres, redis, odoo
+cd apps/backend && ../../node_modules/.bin/tsx src/main.ts   # :3000
+cd apps/frontend && ../../node_modules/.bin/next dev -p 3001 # :3001
+```
+
+```bash
+# 1. ingest a customer message (idempotent by payload id)
+curl -X POST http://localhost:3000/webhooks/whatsapp -H 'content-type: application/json' \
+  -d '{"id":"demo-1","timestamp":"2026-10-09T00:00:00Z","from":"+213555000001","to":"demo","text":"I want 2x Product A","status":"delivered"}'
+# 2. run the order workflow (intent -> stock check -> order -> reply)
+curl -X POST http://localhost:3000/api/orders/webhooks/<webhookEventId>/process
+# 3. read the thread (inbound + assistant reply in one conversation)
+curl http://localhost:3000/api/conversations/<conversationId>/messages
+# 4. duplicate delivery -> {"deduplicated":true}, exactly one order
+# 5. low stock ("I want 99 units of Product C") -> structured error, no order
+```
+
+Proof docs: [E2E matrix](docs/DEMO-PROOF.md) · [Odoo write](docs/ODOO-PROOF.md)
 
 ## Stack
 

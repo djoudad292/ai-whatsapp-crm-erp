@@ -8,7 +8,9 @@
     "dev": "tsx watch src/main.ts",
     "seed": "tsx src/seed.ts",
     "migration:run": "tsx src/database/run-migrations.ts run",
-    "migration:revert": "tsx src/database/run-migrations.ts revert"
+    "migration:revert": "tsx src/database/run-migrations.ts revert",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit -p tsconfig.json"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.0",
@@ -25,6 +27,7 @@
   "devDependencies": {
     "@types/node": "^20.14.10",
     "tsx": "^4.19.0",
-    "typescript": "^5.5.3"
+    "typescript": "^5.5.3",
+    "vitest": "^4.1.11"
   }
 }

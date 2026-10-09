@@ -1,4 +1,11 @@
-import { Injectable } from "@nestjs/common";
+import { Inject, Injectable } from "@nestjs/common";
+import { DataSource } from "typeorm";
+import { getDataSourceToken } from "@nestjs/typeorm";
+import { Message } from "../database/entities/message.entity";
+import { Order } from "../database/entities/order.entity";
+import { WebhookEvent } from "../database/entities/webhook-event.entity";
+import { ApprovalRequest } from "../database/entities/approval-request.entity";
+import { IntegrationEvent } from "../database/entities/integration-event.entity";
 
 export interface MetricsData {
   messagesReceived: number;
@@ -9,48 +16,33 @@ export interface MetricsData {
   retries: number;
 }
 
+/**
+ * Metrics computed from persisted rows — they survive restarts, unlike the
+ * old in-memory counters. Definitions:
+ * - messagesReceived/Sent: inbound/outbound message rows
+ * - ordersCreated: order rows; ordersFailed: webhook_events in failed state
+ * - refundsRequested: approval_requests of type refund
+ * - retries: sum over integration_events of (attempts - 1), floored at 0
+ */
 @Injectable()
 export class MetricsService {
-  private readonly counters: MetricsData = {
-    messagesReceived: 0,
-    messagesSent: 0,
-    ordersCreated: 0,
-    ordersFailed: 0,
-    refundsRequested: 0,
-    retries: 0,
-  };
+  constructor(@Inject(getDataSourceToken()) private readonly ds: DataSource) {}
 
-  getMetrics(): MetricsData {
-    return { ...this.counters };
-  }
-
-  incrementMessagesReceived(): void {
-    this.counters.messagesReceived++;
-  }
-
-  incrementMessagesSent(): void {
-    this.counters.messagesSent++;
-  }
-
-  incrementOrdersCreated(): void {
-    this.counters.ordersCreated++;
-  }
-
-  incrementOrdersFailed(): void {
-    this.counters.ordersFailed++;
-  }
-
-  incrementRefundsRequested(): void {
-    this.counters.refundsRequested++;
-  }
-
-  incrementRetries(): void {
-    this.counters.retries++;
-  }
-
-  reset(): void {
-    (Object.keys(this.counters) as (keyof MetricsData)[]).forEach((key) => {
-      this.counters[key] = 0;
-    });
+  async getMetrics(): Promise<MetricsData> {
+    const messages = await this.ds.getRepository(Message).count({ where: { direction: "inbound" } });
+    const sent = await this.ds.getRepository(Message).count({ where: { direction: "outbound" } });
+    const orders = await this.ds.getRepository(Order).count();
+    const failed = await this.ds.getRepository(WebhookEvent).count({ where: { status: "failed" } });
+    const refunds = await this.ds.getRepository(ApprovalRequest).count({ where: { type: "refund" } });
+    const events = await this.ds.getRepository(IntegrationEvent).find({ select: ["attempts"] });
+    const retries = events.reduce((n, e: any) => n + Math.max(0, (e.attempts ?? 1) - 1), 0);
+    return {
+      messagesReceived: messages,
+      messagesSent: sent,
+      ordersCreated: orders,
+      ordersFailed: failed,
+      refundsRequested: refunds,
+      retries,
+    };
   }
 }

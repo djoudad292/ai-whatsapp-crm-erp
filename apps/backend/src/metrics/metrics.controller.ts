@@ -6,7 +6,7 @@ export class MetricsController {
   constructor(@Inject(MetricsService) private readonly metricsService: MetricsService) {}
 
   @Get()
-  getMetrics() {
+  async getMetrics() {
     return this.metricsService.getMetrics();
   }
 }

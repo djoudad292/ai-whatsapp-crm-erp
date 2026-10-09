@@ -37,7 +37,7 @@ const INQUIRY_RE = /\b(stock|price|prices|inventory|available|catalog|do\s+you\s
  * Extract (quantity, name) pairs from free text. Handles the common forms a
  * customer types on WhatsApp: "2x Product A", "3 of widget", "5 units of gizmo".
  */
-function extractItems(text: string): AiOrderItem[] {
+export function extractItems(text: string): AiOrderItem[] {
   const items: AiOrderItem[] = [];
   const re = /(\d+)\s*(?:x|units?|of|\s|-)*\s*(?:of\s+)?([A-Za-z][A-Za-z0-9 \-']{1,40}?)(?=\s*\d+\s*(?:x|units?|of)?\s*[A-Za-z]|\s*$|\.|,)/gi;
   let m: RegExpExecArray | null;
@@ -51,7 +51,7 @@ function extractItems(text: string): AiOrderItem[] {
   return items;
 }
 
-function parseIntent(text: string): { intent: AiIntent; confidence: number } {
+export function parseIntent(text: string): { intent: AiIntent; confidence: number } {
   const t = text.toLowerCase();
   if (ORDER_RE.test(t)) return { intent: "order", confidence: 0.9 };
   if (INQUIRY_RE.test(t)) return { intent: "inquiry", confidence: 0.8 };
