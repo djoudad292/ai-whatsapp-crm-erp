@@ -60,10 +60,10 @@ export function DemoChat({ starter }: { starter: string }) {
             key={m.id}
             className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
               m.role === "user"
-                ? "self-end bg-primary text-primary-fg"
+                ? "self-end bg-primary text-white shadow-glow"
                 : m.role === "error"
-                  ? "self-start border border-danger/40 bg-danger/10"
-                  : "self-start bg-surface-alt"
+                  ? "self-start border border-danger/40 bg-danger/10 text-fg"
+                  : "self-start bg-surface-alt text-fg shadow-card"
             }`}
           >
             {m.text}
@@ -76,7 +76,7 @@ export function DemoChat({ starter }: { starter: string }) {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}
-          className="flex-1 rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none placeholder:text-fg-muted focus:border-primary"
+          className="flex-1 rounded-xl border border-border bg-bg px-3 py-2 text-sm text-fg outline-none placeholder:text-fg-muted focus:border-primary"
           placeholder="Message as customer…"
         />
         <button
