@@ -23,21 +23,21 @@ export default function ConversationsPage() {
       <div className="grid gap-4 md:grid-cols-2">
         <div className="flex flex-col gap-2">
           {rows.map((c) => (
-            <button key={c.id} onClick={() => show(c)} className="rounded border bg-white p-3 text-left text-sm hover:border-blue-400">
-              <div className="font-medium">{c.externalId} <span className="text-xs text-gray-500">({c.channel})</span></div>
-              <div className="text-xs text-gray-500">{c.messageCount} messages · {c.status}</div>
+            <button key={c.id} onClick={() => show(c)} className="rounded-2xl border border-b border-borderorder bg-surface p-3 text-left text-sm hover:border-primary">
+              <div className="font-medium">{c.externalId} <span className="text-xs text-fg-muted">({c.channel})</span></div>
+              <div className="text-xs text-fg-muted">{c.messageCount} messages · {c.status}</div>
             </button>
           ))}
-          {rows.length === 0 && <div className="text-sm text-gray-500">No conversations yet.</div>}
+          {rows.length === 0 && <div className="text-sm text-fg-muted">No conversations yet.</div>}
         </div>
-        <div className="rounded border bg-white p-3">
-          {!open && <div className="text-sm text-gray-500">Select a thread.</div>}
+        <div className="rounded-2xl border border-b border-borderorder bg-surface p-3">
+          {!open && <div className="text-sm text-fg-muted">Select a thread.</div>}
           {open && (
             <div className="flex flex-col gap-2">
               {msgs.map((m) => (
-                <div key={m.id} className={`max-w-[85%] rounded p-2 text-sm ${m.direction === "inbound" ? "bg-gray-100 self-start" : "bg-blue-100 self-end"}`}>
+                <div key={m.id} className={`max-w-[85%] rounded p-2 text-sm ${m.direction === "inbound" ? "bg-surface-alt self-start" : "bg-primary-soft self-end"}`}>
                   {m.body}
-                  <div className="text-[10px] text-gray-500">{m.status}</div>
+                  <div className="text-[10px] text-fg-muted">{m.status}</div>
                 </div>
               ))}
             </div>

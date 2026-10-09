@@ -3,8 +3,8 @@
 @tailwind utilities;
 
 /*
- * Design tokens — dark product dashboard (default) + light public surface (.pub).
- * Self-contained, no shared UI package.
+ * Design tokens — generated from @supportai/ui (packages/ui/src/tokens.ts).
+ * Dark is the default theme; light activates via [data-theme="light"].
  */
 :root {
   --bg: #070b14;
@@ -57,7 +57,7 @@
   --success: #047857;
   --success-soft: rgba(4, 120, 87, 0.1);
   --warning: #b45309;
-  --warning-soft: rgba(180, 83, 9, 0.13);
+  --warning-soft: rgba(180, 83, 9, 0.1);
   --danger: #dc2626;
   --danger-strong: #b91c1c;
   --danger-soft: rgba(220, 38, 38, 0.09);
@@ -95,6 +95,7 @@
     color: var(--fg);
   }
 
+  /* Consistent focus visibility for all interactive elements (WCAG 2.4.7) */
   a:focus-visible,
   button:focus-visible,
   [tabindex]:focus-visible {
@@ -105,8 +106,9 @@
 }
 
 /*
- * Public surface (.pub) — paper/ink palette for the marketing page and the
+ * Public surface (.pub) — a paper/ink palette for the marketing page and the
  * no-login demo, deliberately different from the dark product dashboard.
+ * Unlayered on purpose: it outranks the base layer without !important.
  */
 .pub {
   --pub-bg: #faf9f6;
@@ -126,13 +128,4 @@
 .pub ::selection {
   background: rgba(29, 92, 74, 0.14);
   color: var(--pub-ink);
-}
-
-@layer components {
-  .btn-primary {
-    @apply inline-flex items-center justify-center rounded-md bg-[var(--pub-ink)] px-4 py-2.5 text-[14px] font-medium text-[var(--pub-panel)] hover:bg-[#2e2c28] transition-colors;
-  }
-  .btn-ghost {
-    @apply inline-flex items-center justify-center rounded-md border border-[var(--pub-line-strong)] px-4 py-2.5 text-[14px] font-medium text-[var(--pub-ink)] hover:bg-[var(--pub-panel)] transition-colors;
-  }
 }
