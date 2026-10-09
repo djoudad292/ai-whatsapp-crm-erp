@@ -1,0 +1,23 @@
+{
+  "expo": {
+    "name": "AI WhatsApp CRM",
+    "slug": "ai-whatsapp-crm",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "scheme": "aiwhatsappcrm",
+    "userInterfaceStyle": "automatic",
+    "newArchEnabled": true,
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.djaouad.aiwhatsappcrm"
+    },
+    "android": {
+      "package": "com.djaouad.aiwhatsappcrm",
+      "edgeToEdgeEnabled": true
+    },
+    "web": {
+      "output": "static"
+    },
+    "plugins": ["expo-router"]
+  }
+}
