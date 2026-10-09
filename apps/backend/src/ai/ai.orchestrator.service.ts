@@ -30,7 +30,7 @@ export interface AiOutput {
 
 const VALID_INTENTS: readonly AiIntent[] = ["order", "inquiry", "unknown"];
 
-const ORDER_RE = /\b(buy|purchase|order|reserve|book|get\s+\d+|want\s+\d+|need\s+\d+)\b/i;
+const ORDER_RE = /\b(buy|purchase|order|reserve|book|get\s+\d+|want\s+\d+|need\s+\d+)/i;
 const INQUIRY_RE = /\b(stock|price|prices|inventory|available|catalog|do\s+you\s+have|what.s\s+the\s+price)\b/i;
 
 /**

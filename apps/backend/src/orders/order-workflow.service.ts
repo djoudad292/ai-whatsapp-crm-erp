@@ -197,12 +197,19 @@ export class OrderWorkflowService {
     // Channel-aware key: telegram senders arrive as `tg:<id>` and their
     // thread was created at ingest time as `tg:<chatId>` (identical in DMs).
     const isTelegram = phone.startsWith("tg:");
-    const externalId = isTelegram ? phone : `wa:${phone}:business`;
-    let conversation = await repo.findOne({ where: { externalId } });
+    const prefix = isTelegram ? phone : `wa:${phone}:`;
+    // Prefer the newest thread the channel ingest created for this sender
+    // (ingest keys threads as `wa:<from>:<to>` / `tg:<chatId>`); fall back
+    // to creating the canonical key only when no thread exists yet.
+    const candidates = await repo.find({ where: {} });
+    const mine = candidates
+      .filter((c) => c.externalId === prefix || c.externalId.startsWith(prefix))
+      .sort((a: any, b: any) => +new Date(b.createdAt) - +new Date(a.createdAt));
+    let conversation = mine[0] ?? null;
 
     if (!conversation) {
       conversation = repo.create({
-        externalId,
+        externalId: isTelegram ? prefix : `wa:${phone}:business`,
         channel: isTelegram ? "telegram" : "whatsapp",
         status: "open",
         customerId: null,

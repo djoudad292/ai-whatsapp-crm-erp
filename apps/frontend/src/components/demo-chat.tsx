@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { apiFetch, API_BASE } from "@/lib/api";
+import { SendHorizontal } from "lucide-react";
 
 function uuid() {
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
@@ -10,9 +11,17 @@ function uuid() {
   });
 }
 
+interface Bubble {
+  id: string;
+  role: "user" | "assistant" | "error";
+  text: string;
+}
+
 export function DemoChat({ starter }: { starter: string }) {
   const [text, setText] = useState(starter);
-  const [log, setLog] = useState<string[]>([]);
+  const [log, setLog] = useState<Bubble[]>([
+    { id: "welcome", role: "assistant", text: "Hi! I'm the shop assistant. Ask about stock or order something — try “I want 2x Product A”." },
+  ]);
   const [busy, setBusy] = useState(false);
 
   async function send() {
@@ -20,8 +29,9 @@ export function DemoChat({ starter }: { starter: string }) {
     if (!body || busy) return;
     setBusy(true);
     const id = uuid();
+    setLog((l) => [...l, { id: `${id}-u`, role: "user", text: body }]);
+    setText("");
     try {
-      setLog((l) => [...l, `you: ${body}`]);
       const created: any = await apiFetch("/webhooks/whatsapp", {
         method: "POST",
         body: JSON.stringify({
@@ -29,29 +39,53 @@ export function DemoChat({ starter }: { starter: string }) {
           from: "+213555000001", to: "demo", text: body, status: "delivered",
         }),
       });
-      const result: any = await apiFetch(`/api/orders/webhooks/${created.webhookEventId}/process`, { method: "POST" });
-      setLog((l) => [...l, `system: ${JSON.stringify(result).slice(0, 300)}`]);
-      setText("");
+      await apiFetch(`/api/orders/webhooks/${created.webhookEventId}/process`, { method: "POST" });
+      // Read back the assistant's actual reply from the thread.
+      const msgs: any[] = await apiFetch(`/api/conversations/${created.conversationId}/messages`);
+      const replies = msgs.filter((m) => m.direction === "outbound").map((m) => m.body);
+      const reply = replies[replies.length - 1] ?? "Done — but I couldn't find a reply in the thread.";
+      setLog((l) => [...l, { id: `${id}-a`, role: "assistant", text: reply }]);
     } catch (e: any) {
-      setLog((l) => [...l, `error: ${e.message} (backend: ${API_BASE})`]);
+      setLog((l) => [...l, { id: `${id}-e`, role: "error", text: `Something went wrong: ${e.message} (backend: ${API_BASE})` }]);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <div className="rounded border bg-white p-3">
-      <div className="mb-2 flex max-h-64 flex-col gap-1 overflow-y-auto text-sm">
-        {log.map((l, i) => (
-          <div key={i} className={l.startsWith("you:") ? "self-end bg-blue-100 rounded p-2" : "self-start bg-gray-100 rounded p-2"}>{l}</div>
+    <div className="flex flex-col rounded-2xl border border-border bg-surface shadow-card">
+      <div className="flex max-h-[28rem] min-h-[16rem] flex-col gap-2 overflow-y-auto p-4">
+        {log.map((m) => (
+          <div
+            key={m.id}
+            className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm leading-relaxed ${
+              m.role === "user"
+                ? "self-end bg-primary text-primary-fg"
+                : m.role === "error"
+                  ? "self-start border border-danger/40 bg-danger/10"
+                  : "self-start bg-surface-alt"
+            }`}
+          >
+            {m.text}
+          </div>
         ))}
-        {log.length === 0 && <div className="text-gray-500">Type a message, e.g. “I want 2x Product A”.</div>}
+        {busy && <div className="self-start animate-pulse rounded-2xl bg-surface-alt px-3 py-2 text-sm text-fg-muted">…</div>}
       </div>
-      <div className="flex gap-2">
-        <input value={text} onChange={(e) => setText(e.target.value)} onKeyDown={(e) => e.key === "Enter" && send()}
-          className="flex-1 rounded border px-2 py-1 text-sm" placeholder="Message as customer…" />
-        <button onClick={send} disabled={busy} className="rounded bg-blue-600 px-3 py-1 text-sm text-white disabled:opacity-50">
-          {busy ? "…" : "Send"}
+      <div className="flex gap-2 border-t border-border p-3">
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && send()}
+          className="flex-1 rounded-xl border border-border bg-bg px-3 py-2 text-sm outline-none placeholder:text-fg-muted focus:border-primary"
+          placeholder="Message as customer…"
+        />
+        <button
+          onClick={send}
+          disabled={busy}
+          aria-label="Send message"
+          className="flex items-center rounded-xl bg-primary px-3 py-2 text-primary-fg shadow-glow disabled:opacity-50"
+        >
+          <SendHorizontal size={16} />
         </button>
       </div>
     </div>
