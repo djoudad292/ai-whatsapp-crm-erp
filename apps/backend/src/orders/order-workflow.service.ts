@@ -194,13 +194,16 @@ export class OrderWorkflowService {
 
   private async getOrCreateConversation(phone: string): Promise<Conversation> {
     const repo = this.ds.getRepository(Conversation);
-    const externalId = `wa:${phone}:business`;
+    // Channel-aware key: telegram senders arrive as `tg:<id>` and their
+    // thread was created at ingest time as `tg:<chatId>` (identical in DMs).
+    const isTelegram = phone.startsWith("tg:");
+    const externalId = isTelegram ? phone : `wa:${phone}:business`;
     let conversation = await repo.findOne({ where: { externalId } });
 
     if (!conversation) {
       conversation = repo.create({
         externalId,
-        channel: "whatsapp",
+        channel: isTelegram ? "telegram" : "whatsapp",
         status: "open",
         customerId: null,
       });
@@ -218,6 +221,13 @@ export class OrderWorkflowService {
   ): Promise<void> {
     const conversation = await this.getOrCreateConversation(phone);
     const messageRepo = this.ds.getRepository(Message);
+
+    // The channel ingest already stored this inbound message; skip the
+    // second insert instead of tripping the externalId unique key.
+    const alreadyStored = await messageRepo.findOne({
+      where: { externalId: webhookEvent.externalEventId },
+    });
+    if (alreadyStored) return;
 
     const message = messageRepo.create({
       conversationId: conversation.id,

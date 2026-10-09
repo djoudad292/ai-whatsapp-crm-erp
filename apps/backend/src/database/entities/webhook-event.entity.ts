@@ -6,7 +6,7 @@ import {
   Index,
 } from "typeorm";
 
-export type WebhookEventSource = "odoo" | "whatsapp";
+export type WebhookEventSource = "odoo" | "whatsapp" | "telegram";
 export type WebhookEventStatus = "received" | "processed" | "failed" | "duplicate";
 
 /**

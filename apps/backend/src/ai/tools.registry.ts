@@ -9,6 +9,7 @@ import { Customer } from "../database/entities/customer.entity";
 import { Product } from "../database/entities/product.entity";
 import { Order } from "../database/entities/order.entity";
 import { OrderItem } from "../database/entities/order-item.entity";
+import { Conversation } from "../database/entities/conversation.entity";
 import { Message } from "../database/entities/message.entity";
 import { AuditLog } from "../database/entities/audit-log.entity";
 import { OrderStatus } from "../database/entities/order.entity";
@@ -120,7 +121,29 @@ export class ToolsRegistry {
     const msg = await repo.save(
       repo.create({ conversationId, direction: "outbound" as any, body: text, status: "queued" } as any),
     );
-    await this.audit(ctx, "MESSAGE_SENT", conversationId, true, undefined, "queued");
+    // Best-effort live delivery: Telegram conversations go out via Bot API.
+    // Delivery failure never breaks the workflow; the queued row + audit remain.
+    try {
+      const conv = await this.ds.getRepository(Conversation).findOne({ where: { id: conversationId } });
+      if (conv?.channel === "telegram") {
+        const token = process.env.TELEGRAM_BOT_TOKEN;
+        const chatId = (conv.externalId ?? "").replace(/^tg:/, "");
+        if (token && chatId) {
+          const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
+            method: "POST",
+            headers: { "content-type": "application/json" },
+            body: JSON.stringify({ chat_id: chatId, text }),
+          });
+          if (res.ok) {
+            (msg as any).status = "sent";
+            await repo.save(msg);
+          }
+        }
+      }
+    } catch (e: any) {
+      console.warn(`[tools] telegram delivery failed: ${e.message}`);
+    }
+    await this.audit(ctx, "MESSAGE_SENT", conversationId, true, undefined, (msg as any).status ?? "queued");
     return msg;
   }
 }

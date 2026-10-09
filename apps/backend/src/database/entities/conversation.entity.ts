@@ -13,7 +13,7 @@ import { Customer } from "./customer.entity";
 import { Message } from "./message.entity";
 
 export type ConversationStatus = "open" | "closed" | "archived";
-export type ConversationChannel = "whatsapp";
+export type ConversationChannel = "whatsapp" | "telegram";
 
 /**
  * WhatsApp conversation thread, owned by the CRM.

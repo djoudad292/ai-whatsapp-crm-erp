@@ -34,7 +34,7 @@ function databaseConfig(configService: ConfigService) {
     type: "postgres" as const,
     url: configService.get<string>("DATABASE_URL"),
     entities: ENTITIES,
-    synchronize: configService.get<string>("NODE_ENV") !== "production",
+    synchronize: configService.get<string>("DB_SYNCHRONIZE") !== "false" && configService.get<string>("NODE_ENV") !== "production",
     migrations: [__dirname + "/migrations/*.js"],
     migrationsRun: false,
     logging: configService.get<string>("NODE_ENV") !== "production",
