@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "AI WhatsApp CRM/ERP",
   description: "AI WhatsApp -> CRM -> ERP integration platform",
+  icons: { icon: "/icon.svg" },
 };
 
 export default function RootLayout({
