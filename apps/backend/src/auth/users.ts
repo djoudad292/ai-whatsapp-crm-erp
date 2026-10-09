@@ -12,10 +12,10 @@ export interface UserRecord {
   role: Role;
 }
 
+// Single-user demo: admin is the only account. No signup endpoint exists;
+// AuthController exposes /login only.
 export const USERS: UserRecord[] = [
   { sub: "user-admin", username: "admin", password: "admin", role: "ADMIN" },
-  { sub: "user-operator", username: "operator", password: "operator", role: "OPERATOR" },
-  { sub: "user-viewer", username: "viewer", password: "viewer", role: "VIEWER" },
 ];
 
 export function findUser(username: string, password: string): UserRecord | undefined {

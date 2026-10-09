@@ -1,4 +1,4 @@
-import { Body, Controller, Get, Post, Req, UseGuards, HttpException, HttpStatus } from "@nestjs/common";
+import { Body, Controller, Get, Post, Req, UseGuards, HttpException, HttpStatus, Inject } from "@nestjs/common";
 type Request = any;
 import { AuthService } from "./auth.service";
 import { findUser } from "./users";
@@ -11,7 +11,7 @@ interface LoginBody {
 
 @Controller("api/auth")
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(@Inject(AuthService) private readonly auth: AuthService) {}
 
   @Post("login")
   login(@Body() body: LoginBody) {
