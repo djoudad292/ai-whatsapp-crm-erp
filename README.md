@@ -4,6 +4,16 @@ An AI agent that **reads WhatsApp messages**, **checks stock**, **creates orders
 
 **Live demo:** [crm.djaouad.is-a.dev](https://crm.djaouad.is-a.dev) · [Try it with no signup](https://crm.djaouad.is-a.dev/try)
 
+![WhatsApp Order Capture — landing page](screenshots/hero.png)
+
+A real order created from a chat message, no signup:
+
+![Live try chat — order created](screenshots/try-chat.png)
+
+Out-of-scope input gets a safe answer instead of a broken order:
+
+![Refund request handled without a matching order](screenshots/refund-flow.png)
+
 ## Architecture
 
 ```
