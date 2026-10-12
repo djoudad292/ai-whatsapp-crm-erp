@@ -1,175 +1,182 @@
-# AI WhatsApp -> CRM -> ERP
+# AI WhatsApp CRM/ERP
 
-Demo integration platform: a WhatsApp/Telegram-style message becomes a
-webhook, an LLM (or deterministic fallback) extracts intent, typed tools
-persist an order to PostgreSQL with a full audit trail, and a real
-`sale.order` can be written to Odoo. Dashboard: Next.js. Bot: Telegram live.
+An AI agent that **reads WhatsApp messages**, **checks stock**, **creates orders**, and **replies to the customer** — with a dashboard for humans to review every conversation, order and approval.
 
-Live demo: https://crm-djaouad.netlify.app/try · Bot: https://t.me/DjaouadcrmBot
+**Live demo:** [crm.djaouad.is-a.dev](https://crm.djaouad.is-a.dev) · [Try it with no signup](https://crm.djaouad.is-a.dev/try)
 
-## 60-second demo (local)
+## Architecture
+
+```
+┌───────────────────────────────────────────────┐
+│          Frontend (Next.js 14, static export)   │
+│   /try  ·  /dashboard  ·  /orders  ·  /chat     │
+│   /conversations  ·  /approvals  ·  /audit      │
+└───────────────────┬───────────────────────────┘
+                    │  REST  (+  Netlify redirect)
+┌───────────────────▼───────────────────────────┐
+│      Backend (NestJS) — Netlify Function       │
+│   Webhooks · Agent · Tools · Orders            │
+│   Approvals · Audit · Delivery (WhatsApp API)   │
+└───────────────────┬───────────────────────────┘
+                    │  SQL
+┌───────────────────▼───────────────────────────┐
+│            Postgres on Neon (external)         │
+│  conversations │ messages │ customers │ products │
+│  orders │ order_items │ webhook_events │ audit  │
+└───────────────────────────────────────────────┘
+```
+
+The backend is a **single stateless function**. There is no long-lived server and no
+in-memory queue: every request boots the app (warm-started), reads Postgres, and
+returns. Outbound WhatsApp delivery is attempted **inline** and retried from the
+`messages` table itself — see [Delivery](#delivery-without-a-queue-worker) below.
+
+## Features
+
+- **Inbound webhook ingest** — Meta retries webhooks, so every event is deduplicated
+  on `(source, externalEventId)` before it touches the database.
+- **Threading** — messages group into one conversation per customer (`wa:<from>:<to>`).
+- **Agent + tool registry** — the LLM never gets raw DB access. It can only invoke a
+  fixed set of tools (`createOrder`, `checkStock`, `sendCustomerMessage`), so a
+  hallucination cannot drop your tables.
+- **Transactional ordering** — stock is re-checked *inside* the transaction that
+  writes the order, so two customers racing for the last item cannot both win.
+- **Real WhatsApp delivery** — Cloud API client with correct retry classification
+  (see below), persisted `wamid` for idempotency.
+- **Approvals & audit** — high-value actions wait for a human sign-off; every tool
+  call is written to an append-only audit log.
+- **Metrics** — conversations, messages sent, delivery outcomes.
+
+## Tech Stack
+
+| Component | Technology |
+|-----------|------------|
+| Frontend | Next.js 14 (static export), TailwindCSS, TypeScript |
+| Backend  | NestJS 11, TypeScript, TypeORM |
+| Database | Postgres 18 on **Neon** (works with any Postgres) |
+| Messaging | WhatsApp Cloud API (Graph), Telegram Bot API |
+| Hosting   | Netlify (frontend + function) + Neon |
+
+## Delivery without a queue worker
+
+Serverless hosts cannot run a BullMQ worker — it needs a long-lived process. So the
+`messages` table *is* the queue:
+
+| Outcome | Result |
+|---------|--------|
+| Success | `status = sent`, `externalId` = the `wamid` |
+| Retryable (rate limit, 5xx, timeout) | stays `queued`, exponential backoff capped at 30 min |
+| Permanent (undeliverable, bad token) | `status = failed` immediately, never retried |
+| No credentials | stays `queued` — **the message is never dropped** |
+
+`POST /api/delivery/drain` is the retry pass. Point any scheduler at it.
+
+## Quick Start
 
 ```bash
-docker compose up -d                      # postgres, redis, odoo
-cd apps/backend && ../../node_modules/.bin/tsx src/main.ts   # :3000
-cd apps/frontend && ../../node_modules/.bin/next dev -p 3001 # :3001
+git clone https://github.com/djoudad292/ai-whatsapp-crm-erp.git
+cd ai-whatsapp-crm-erp
+npm install
 ```
+
+### 1. Database
+
+Any Postgres works. On Neon, run the migrations:
 
 ```bash
-# 1. ingest a customer message (idempotent by payload id)
-curl -X POST http://localhost:3000/webhooks/whatsapp -H 'content-type: application/json' \
-  -d '{"id":"demo-1","timestamp":"2026-10-09T00:00:00Z","from":"+213555000001","to":"demo","text":"I want 2x Product A","status":"delivered"}'
-# 2. run the order workflow (intent -> stock check -> order -> reply)
-curl -X POST http://localhost:3000/api/orders/webhooks/<webhookEventId>/process
-# 3. read the thread (inbound + assistant reply in one conversation)
-curl http://localhost:3000/api/conversations/<conversationId>/messages
-# 4. duplicate delivery -> {"deduplicated":true}, exactly one order
-# 5. low stock ("I want 99 units of Product C") -> structured error, no order
+cd backend
+npm run build
+node dist/database/run-migrations.js run   # note: run from dist/, not tsx
+node dist/seed.js                           # optional demo catalogue
 ```
 
-Proof docs: [E2E matrix](docs/DEMO-PROOF.md) · [Odoo write](docs/ODOO-PROOF.md)
+> The migration runner globs `migrations/*.js`, so it must run against the compiled
+> output. Running it through `tsx` finds zero migrations and **reports success while
+> creating nothing** — that trap is already fixed in `npm run migrate`.
 
-## Stack
-
-| Layer    | Tech                                  |
-| -------- | ------------------------------------- |
-| Frontend | Next.js 14 + TypeScript + Tailwind CSS |
-| Backend  | NestJS 11 + TypeScript (Express)      |
-| ORM      | TypeORM 0.3 (NestJS `@nestjs/typeorm`) |
-| ERP      | Odoo 17                               |
-| Data     | PostgreSQL 16, Redis 7               |
-
-## Ports
-
-| Service    | Host port | Container port | Purpose                |
-| ---------- | --------- | -------------- | ---------------------- |
-| Frontend   | `3001`    | `3000`         | Next.js app            |
-| Backend    | `3000`    | `3000`         | NestJS API             |
-| Odoo       | `8069`    | `8069`         | ERP                    |
-| PostgreSQL | `5432`    | `5432`         | CRM + Odoo DB          |
-| Redis      | `6379`    | `6379`         | Cache / queue / state  |
-
-## Mock WhatsApp Gateway (Phase 4)
-
-A Next.js-style customer chat UI that simulates sending WhatsApp messages.
-Inbound messages POST to the backend webhook and are persisted as
-`WebhookEvent` + `Message` rows.
-
-### UI
-
-- Route: `apps/frontend/src/app/chat/page.tsx` (+ `Chat.tsx`)
-- Env: `NEXT_PUBLIC_BACKEND_WEBHOOK_URL` (default
-  `http://localhost:3000/webhooks/whatsapp`)
-- Features: text input, simulated `queued|delivered|failed` status, a
-  **Simulate delivery failure** toggle, and a live HTTP response pane.
-
-### Backend
-
-- `POST /webhooks/whatsapp` — `apps/backend/src/webhooks/webhooks.controller.ts`
-- Validates the payload `{ id, timestamp, from, to, text, status }`
-  (400 on invalid) and persists a `WebhookEvent` row **idempotent by
-  `payload.id`** (unique `source + externalEventId`). Duplicate deliveries
-  are recorded as `duplicate` and never re-processed.
-- Wires the `Message` entity: an inbound `Message` row is created and its
-  `Conversation` thread is upserted (`wa:<from>:<to>`).
-- Module: `apps/backend/src/webhooks/webhooks.module.ts`, wired into
-  `AppModule`.
-
-### Try it
+### 2. Backend
 
 ```bash
-# backend
-curl -X POST http://localhost:3000/webhooks/whatsapp \
-  -H 'Content-Type: application/json' \
-  -d '{"id":"wa-1","timestamp":"2026-10-07T21:11:46Z","from":"+15551234567","to":"+15550000000","text":"Hello","status":"delivered"}'
-
-# duplicate delivery → idempotent (200, deduplicated: true)
-curl -X POST http://localhost:3000/webhooks/whatsapp \
-  -H 'Content-Type: application/json' \
-  -d '{"id":"wa-1","timestamp":"...","from":"+15551234567","to":"+15550000000","text":"Hello","status":"delivered"}'
+cd backend
+cp .env.example .env     # fill DATABASE_URL etc.
+npm run dev              # http://localhost:3000
 ```
 
-> Phase 4 — Mock WhatsApp gateway + webhook ingestion. No AI orchestration
-> yet (Phase 6).
-
-## Setup
-
-1. Copy environment variables:
-   ```bash
-   cp .env.example .env
-   ```
-2. Build and run the full stack:
-   ```bash
-   docker compose up --build
-   ```
-3. Health endpoints:
-   - Backend: `http://localhost:3000/health`
-   - Frontend: `http://localhost:3001/`
-   - Odoo: `http://localhost:8069/`
-
-## Domain model (Phase 2)
-
-Local CRM state is stored in PostgreSQL and is **separate from Odoo**.
-The local DB is the system of record for the order workflow; Odoo is a
-downstream projection reconciled through the outbox.
-
-| Entity              | Local state | Odoo mirror         | Notes                                            |
-| ------------------- | ----------- | ------------------- | ------------------------------------------------ |
-| `Customer`          | yes         | `res.partner`       | `odooId` is the reconciliation key               |
-| `Product`           | yes         | `product.template`  | `stockQuantity` is the local inventory view      |
-| `Order`             | yes         | `sale.order`        | `local_orders` mirror; status gates the sync     |
-| `OrderItem`         | yes         | `sale.order.line`   | `unitPrice` is a snapshot, not a live reference  |
-| `Conversation`      | yes         | -                   | WhatsApp thread; CRM owns it                     |
-| `Message`           | yes         | -                   | `externalId` dedups inbound webhook events       |
-| `IntegrationEvent`  | yes         | -                   | Transactional outbox for Odoo pushes             |
-| `WebhookEvent`      | yes         | -                   | Inbound webhook record + dedup key               |
-| `ApprovalRequest`   | yes         | -                   | Human sign-off before Odoo sync                  |
-| `AuditLog`          | yes         | -                   | Append-only audit trail                          |
-
-### Seed
+### 3. Frontend
 
 ```bash
-# inside apps/backend
-npm run seed
+cd frontend
+cp .env.example .env     # NEXT_PUBLIC_API_URL=http://localhost:3000
+npm run dev
 ```
 
-Idempotent upserts (matched by `phone` / `sku`):
-
-- Customers: **Ahmed**, **Sara**, **Company Customer**
-- Products: **Product A** (5 in stock, $9.99), **Product B** (50, $19.99),
-  **Product C** (500, $49.99)
-
-### Migrations
+### Docker
 
 ```bash
-npm run migration:run    # apply pending migrations
-npm run migration:revert # roll back the last one
+docker compose up --build    # postgres + redis + odoo + backend + frontend
 ```
 
-In development the app also uses `synchronize: true` so the schema is created
-on startup; migrations are the source of truth for production.
+## Deployment
 
-## Structure
+| Piece | Host |
+|-------|------|
+| Frontend + API function | **Netlify** (see `netlify.toml`) |
+| Database | **Neon** or any Postgres |
 
+The Netlify function reads its config from `.env` at build time via
+`scripts/build-function-config.mjs`, which writes a **gitignored** file that gets
+bundled. Credentials therefore never enter the repository — a pre-commit guard
+(`scripts/guard-secrets.mjs`) blocks any credential-shaped string from being staged.
+
+## API Endpoints
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/webhooks/whatsapp` | Inbound message (deduplicated) |
+| POST | `/webhooks/telegram` | Inbound Telegram message |
+| POST | `/api/orders/webhooks/:id/process` | Run the agent over a captured message |
+| GET  | `/api/conversations` | List conversations |
+| GET  | `/api/conversations/:id/messages` | Thread with delivery status |
+| GET  | `/api/orders` | List orders |
+| POST | `/api/delivery/drain` | Retry queued outbound messages |
+| GET  | `/api/metrics` | Counters |
+| POST | `/api/auth/login` | Single-admin login |
+
+## Environment Variables
+
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `DATABASE_URL` | Yes | Postgres connection string |
+| `DATABASE_SSL` | For Neon/managed | `true` to require TLS |
+| `AUTH_SECRET` | Yes | Session signing secret |
+| `LLM_BASE_URL` | Optional | OpenAI-compatible endpoint |
+| `LLM_API_KEY` | Optional | Enables the LLM path |
+| `LLM_MODEL` | Optional | Model id |
+| `WHATSAPP_PHONE_NUMBER_ID` | For sending | Cloud API phone number id |
+| `WHATSAPP_ACCESS_TOKEN` | For sending | Cloud API bearer token |
+| `QUEUES_ENABLED` | No | `true` to load BullMQ (needs Redis) |
+| `TELEGRAM_BOT_TOKEN` | Optional | Telegram channel |
+
+> With no `LLM_*` configured the agent runs a **deterministic intent parser**, not an
+> LLM. It still handles ordering reliably, but free-form questions will not be
+> understood. This degradation is logged rather than silent.
+
+## Tests
+
+```bash
+cd backend
+npm test          # delivery semantics: retryable vs permanent, backoff, exhaustion
+npm run typecheck
 ```
-apps/
-  frontend/      # Next.js + TS + Tailwind
-    src/app/chat/ # Mock WhatsApp gateway UI (Phase 4)
-  backend/       # NestJS + TS
-    src/
-      app.module.ts
-      main.ts
-      webhooks/    # WebhooksModule + POST /webhooks/whatsapp (Phase 4)
-      database/
-        entities/           # 10 TypeORM entities
-        migrations/         # schema migrations
-        database.module.ts  # TypeOrmModule wiring
-      health/             # liveness probe
-      seed.ts             # idempotent seed
-docker-compose.yml
-.env.example
-README.md
-```
 
-> Phase 2 — PostgreSQL + TypeORM domain model. Local and Odoo state are
-> intentionally separated; `local_orders` mirror the Odoo `sale.order`.
+## Security
+
+- `.env` is gitignored and blocked by a pre-commit secret scanner.
+- The agent is tool-gated: no raw query surface.
+- Webhook endpoints are **not** authenticated — add a shared-secret check before
+  exposing them publicly.
+- `/api/delivery/drain` triggers real sends; guard it with a token in production.
+
+---
+
+Built by [Djaouad Frih](https://djaouad.is-a.dev) — [djaouad.is-a.dev](https://djaouad.is-a.dev)

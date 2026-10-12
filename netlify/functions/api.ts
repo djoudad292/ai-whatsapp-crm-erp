@@ -8,7 +8,7 @@
 import type { Handler } from "@netlify/functions";
 import { NestFactory } from "@nestjs/core";
 import serverless from "serverless-http";
-import { AppModule } from "../../apps/backend/dist/app.module";
+import { AppModule } from "../../backend/dist/app.module";
 
 let handlerPromise: Promise<Handler> | null = null;
 

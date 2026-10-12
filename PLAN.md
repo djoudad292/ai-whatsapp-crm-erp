@@ -8,7 +8,7 @@
 - Money/clients goal: project doubles as the "integration engineering" portfolio piece from outreach templates
 
 ## Phase 1 — Repo + architecture + Docker (now)
-- Monorepo layout: apps/frontend, apps/backend, services/odoo (docker), packages/shared
+- Monorepo layout: frontend, backend, services/odoo (docker), packages/shared
 - docker-compose: postgres, redis, odoo+db, backend, frontend; documented ports
 - .env.example, README skeleton
 

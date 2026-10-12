@@ -73,7 +73,7 @@ services:
   backend:
     build:
       context: .
-      dockerfile: ./apps/backend/Dockerfile
+      dockerfile: ./backend/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
@@ -99,7 +99,7 @@ services:
   # --- Frontend ---
   frontend:
     build:
-      context: ./apps/frontend
+      context: ./frontend
     depends_on:
       backend:
         condition: service_healthy

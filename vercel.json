@@ -1,6 +1,6 @@
 {
-  "buildCommand": "npm --workspace apps/frontend run build",
-  "outputDirectory": "apps/frontend/out",
+  "buildCommand": "npm --workspace frontend run build",
+  "outputDirectory": "frontend/out",
   "installCommand": "npm install",
   "framework": null
 }

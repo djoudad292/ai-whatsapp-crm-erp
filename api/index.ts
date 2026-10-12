@@ -7,7 +7,7 @@
  */
 import { NestFactory } from "@nestjs/core";
 import type { NextFunction, Request, Response } from "express";
-import { AppModule } from "../apps/backend/dist/app.module";
+import { AppModule } from "../backend/dist/app.module";
 
 type ExpressApp = (req: Request, res: Response, next?: NextFunction) => void;
 

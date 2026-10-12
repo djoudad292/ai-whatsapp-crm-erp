@@ -2,12 +2,13 @@
   "name": "ai-whatsapp-crm-erp",
   "private": true,
   "workspaces": [
-    "apps/*"
+    "backend",
+    "frontend"
   ],
   "scripts": {
     "dev": "docker compose up --build",
-    "build:frontend": "npm --workspace apps/frontend run build",
-    "dev:frontend": "npm --workspace apps/frontend run dev"
+    "build:frontend": "npm --workspace frontend run build",
+    "dev:frontend": "npm --workspace frontend run dev"
   },
   "dependencies": {
     "@nestjs/bullmq": "^12.0.0",

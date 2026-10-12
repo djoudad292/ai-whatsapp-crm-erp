@@ -1,7 +1,7 @@
 # Odoo live-write proof (2026-10-09)
 
-Script: `apps/backend/src/odoo/verify-odoo.ts`
-(run: `cd apps/backend && source .env && ../../node_modules/.bin/tsx src/odoo/verify-odoo.ts`)
+Script: `backend/src/odoo/verify-odoo.ts`
+(run: `cd backend && source .env && ../../node_modules/.bin/tsx src/odoo/verify-odoo.ts`)
 
 Prereqs proven in-session: Odoo 17 container with `sale_management` + `stock`
 installed (`odoo -d odoo -i sale_management,stock`), admin password set via
