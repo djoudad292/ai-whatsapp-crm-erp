@@ -36,7 +36,12 @@ export class Message {
   @Column({ type: "enum", enum: ["inbound", "outbound"] })
   direction!: MessageDirection;
 
-  @Column({ type: "varchar", length: 40, unique: true, nullable: true })
+  /**
+   * The provider's message id, used for idempotency and dedup. Inbound ids come
+   * from the webhook; outbound ids are WhatsApp `wamid` values, which run past
+   * 60 characters — hence 160 rather than the old 40.
+   */
+  @Column({ type: "varchar", length: 160, unique: true, nullable: true })
   @Index()
   externalId!: string | null;
 
