@@ -10,7 +10,8 @@ import {
 import { Conversation } from "./conversation.entity";
 
 export type MessageDirection = "inbound" | "outbound";
-export type MessageStatus = "received" | "sent" | "delivered" | "read" | "failed";
+/** "queued" is the outbound pre-send state used by the delivery service. */
+export type MessageStatus = "queued" | "received" | "sent" | "delivered" | "read" | "failed";
 
 /**
  * Single message inside a WhatsApp conversation.
@@ -52,6 +53,21 @@ export class Message {
    */
   @Column({ type: "jsonb", nullable: true })
   metadata!: Record<string, unknown> | null;
+
+  /**
+   * Outbound delivery bookkeeping. Serverless hosts have no queue worker, so
+   * the message row doubles as the retry record: an inline attempt increments
+   * the counter, failures record the reason and schedule the next attempt, and
+   * a drain picks rows up once nextAttemptAt has passed.
+   */
+  @Column({ type: "integer", default: 0 })
+  deliveryAttempts!: number;
+
+  @Column({ type: "text", nullable: true })
+  deliveryError!: string | null;
+
+  @Column({ type: "timestamptz", nullable: true })
+  nextAttemptAt!: Date | null;
 
   @CreateDateColumn({ type: "timestamptz", default: () => "now()" })
   createdAt!: Date;

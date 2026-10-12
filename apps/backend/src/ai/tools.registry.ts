@@ -13,6 +13,7 @@ import { Conversation } from "../database/entities/conversation.entity";
 import { Message } from "../database/entities/message.entity";
 import { AuditLog } from "../database/entities/audit-log.entity";
 import { OrderStatus } from "../database/entities/order.entity";
+import { DeliveryService } from "../delivery/delivery.service";
 
 export interface ToolContext {
   phone: string;
@@ -21,7 +22,10 @@ export interface ToolContext {
 
 @Injectable()
 export class ToolsRegistry {
-  constructor(@Inject(getDataSourceToken()) private readonly ds: DataSource) {}
+  constructor(
+    @Inject(getDataSourceToken()) private readonly ds: DataSource,
+    private readonly delivery: DeliveryService,
+  ) {}
 
   private async audit(ctx: ToolContext, actionLabel: string, target: string, success: boolean, input: unknown, result: unknown) {
     const lower = actionLabel.toLowerCase();
@@ -139,11 +143,20 @@ export class ToolsRegistry {
             await repo.save(msg);
           }
         }
+      } else if (conv?.channel === "whatsapp") {
+        // Hand off to the delivery service, which sends through the WhatsApp
+        // Cloud API inline and, on a retryable failure, leaves the row queued
+        // with a backoff for a later drain.
+        const result = await this.delivery.attempt((msg as any).id);
+        if (!result?.ok) {
+          console.warn(`[tools] whatsapp delivery deferred: ${result?.error ?? "unknown"}`);
+        }
       }
     } catch (e: any) {
       console.warn(`[tools] telegram delivery failed: ${e.message}`);
     }
-    await this.audit(ctx, "MESSAGE_SENT", conversationId, true, undefined, (msg as any).status ?? "queued");
-    return msg;
+    const fresh = await repo.findOne({ where: { id: (msg as any).id } });
+    await this.audit(ctx, "MESSAGE_SENT", conversationId, true, undefined, fresh?.status ?? "queued");
+    return (fresh ?? msg) as Message;
   }
 }
