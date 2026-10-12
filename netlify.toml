@@ -5,6 +5,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+  # Same-origin: the function is reached via the redirects below.
+  NEXT_PUBLIC_API_URL = ""
+  NEXT_PUBLIC_BACKEND_WEBHOOK_URL = "/webhooks/whatsapp"
 
 [[redirects]]
   # Static assets and exported pages win first; everything else is the API.

@@ -32,3 +32,9 @@ coverage/
 .vercel
 .env*
 .netlify/
+.env
+backend/.env
+backend/config.json
+.netlify/
+frontend/.next/
+frontend/out/
