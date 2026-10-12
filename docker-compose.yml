@@ -72,16 +72,18 @@ services:
   # --- Backend ---
   backend:
     build:
-      context: ./apps/backend
+      context: .
+      dockerfile: ./apps/backend/Dockerfile
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_healthy
     environment:
-      DATABASE_URL: ${DATABASE_URL}
-      REDIS_URL: ${REDIS_URL}
+      DATABASE_URL: postgres://postgres:postgres@postgres:5432/crm
+      REDIS_URL: redis://redis:6379
       PORT: ${BACKEND_PORT}
+      NODE_ENV: production
     ports:
       - "${BACKEND_PORT}:3000"
     healthcheck:
