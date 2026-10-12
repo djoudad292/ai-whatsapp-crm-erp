@@ -1,4 +1,4 @@
-import { Module, Type } from "@nestjs/common";
+import { Module } from "@nestjs/common";
 import { ConfigModule } from "@nestjs/config";
 import { DatabaseModule } from "./database/database.module";
 import { OdooModule } from "./odoo/odoo.module";
@@ -11,17 +11,6 @@ import { OrdersModule } from "./orders/orders.module";
 import { MetricsModule } from "./metrics/metrics.module";
 import { HealthController } from "./health/health.controller";
 
-/**
- * BullMQ requires a long-lived worker process and a reachable Redis, neither of
- * which exists on serverless hosts (Vercel). The queue only backs outbound
- * message delivery; inbound webhook processing is synchronous, so the API stays
- * fully functional without it. Opt in with QUEUES_ENABLED=true, or by setting
- * REDIS_HOST, and the queue is registered as before.
- */
-const queuesEnabled = process.env.QUEUES_ENABLED === "true" || Boolean(process.env.REDIS_HOST);
-
-const optionalQueues: Type<unknown>[] = queuesEnabled ? [QueuesModule] : [];
-
 @Module({
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
@@ -29,7 +18,7 @@ const optionalQueues: Type<unknown>[] = queuesEnabled ? [QueuesModule] : [];
     OdooModule,
     WebhooksModule,
     AiModule,
-    ...optionalQueues,
+    QueuesModule,
     OrdersModule,
     AuthModule,
     DashboardModule,
