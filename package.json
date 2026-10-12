@@ -18,5 +18,8 @@
     "pg": "^8.23.1",
     "pg-connection-string": "^2.14.1",
     "typeorm": "^0.3.31"
+  },
+  "devDependencies": {
+    "@netlify/functions": "^6.0.2"
   }
 }

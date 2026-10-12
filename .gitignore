@@ -31,3 +31,4 @@ docker-data/
 coverage/
 .vercel
 .env*
+.netlify/

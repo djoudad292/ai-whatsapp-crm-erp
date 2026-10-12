@@ -1,0 +1,23 @@
+[build]
+  command = "npm --workspace apps/backend run build && npm --workspace apps/frontend run build"
+  publish = "apps/frontend/out"
+  functions = "netlify/functions"
+
+[build.environment]
+  NODE_VERSION = "20"
+
+[[redirects]]
+  # Static assets and exported pages win first; everything else is the API.
+  from = "/api/*"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/health"
+  to = "/.netlify/functions/api"
+  status = 200
+
+[[redirects]]
+  from = "/webhooks/*"
+  to = "/.netlify/functions/api"
+  status = 200
