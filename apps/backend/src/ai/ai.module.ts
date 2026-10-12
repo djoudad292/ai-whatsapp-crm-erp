@@ -12,9 +12,10 @@ import { Product } from "../database/entities/product.entity";
 import { IntegrationEvent } from "../database/entities/integration-event.entity";
 import { WebhookEvent } from "../database/entities/webhook-event.entity";
 import { ApprovalRequest } from "../database/entities/approval-request.entity";
+import { DeliveryModule } from "../delivery/delivery.module";
 
 @Module({
-  imports: [TypeOrmModule.forFeature([AuditLog, Conversation, Customer, Message, Order, OrderItem, Product, IntegrationEvent, WebhookEvent, ApprovalRequest])],
+  imports: [TypeOrmModule.forFeature([AuditLog, Conversation, Customer, Message, Order, OrderItem, Product, IntegrationEvent, WebhookEvent, ApprovalRequest]), DeliveryModule],
   providers: [AiOrchestratorService, ToolsRegistry],
   exports: [AiOrchestratorService, ToolsRegistry],
 })
