@@ -1,16 +1,21 @@
 /**
  * API client helper.
  *
- * Backend base URL comes from env NEXT_PUBLIC_API_URL (e.g.
- * http://localhost:3000). All dashboard routes are client components, so this
- * module is safe to import from "use client" files.
+ * Backend base URL comes from env NEXT_PUBLIC_API_URL. It may be:
+ *   - an absolute origin (http://localhost:3000, https://api.example.com)
+ *   - a root-relative path ("/") or a placeholder (".", "") meaning
+ *     "same origin as the site".
+ *
+ * Relative bases are always resolved against the site origin, never the
+ * current route: a bare "." would otherwise turn "/api/orders" into
+ * "/dashboard/api/orders" on nested pages like /dashboard/orders.
+ * All dashboard routes are client components, so this module is safe to
+ * import from "use client" files.
  */
 
-const API_BASE = (
-  process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:3000"
-).replace(/\/+$/, "");
+const RAW_BASE = (process.env.NEXT_PUBLIC_API_URL ?? "").trim().replace(/\/+$/, "");
 
-export { API_BASE };
+export const API_BASE = /^https?:\/\//i.test(RAW_BASE) ? RAW_BASE : "";
 
 /** Append a token from localStorage to a request when one is present. */
 export function authHeaders(extra: Record<string, string> = {}): Record<string, string> {

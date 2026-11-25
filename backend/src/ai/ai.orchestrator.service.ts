@@ -4,9 +4,10 @@
  * Phase 6: turns WhatsApp-style free text into structured JSON
  *   { intent, items }
  * without any LLM dependency. The parser is a small set of regex rules:
- *   - buy / order / purchase / reserve  -> intent "order"  (order flow)
- *   - stock / price / inventory / ...   -> intent "inquiry" (info flow)
- *   - anything else                    -> intent "unknown"
+ *   - refund / return / money back      -> intent "refund"   (approval flow)
+ *   - buy / order / purchase / reserve  -> intent "order"    (order flow)
+ *   - stock / price / inventory / ...   -> intent "inquiry"  (info flow)
+ *   - anything else                     -> intent "unknown"
  *
  * The output is validated against a Zod-style schema (see `AiOutputSchema`).
  * Invalid output throws `AiValidationError`; the caller decides what to do.
@@ -14,7 +15,7 @@
 
 import { AiValidationError } from "./ai.errors";
 
-export type AiIntent = "order" | "inquiry" | "unknown";
+export type AiIntent = "order" | "inquiry" | "refund" | "unknown";
 
 export interface AiOrderItem {
   sku?: string;
@@ -28,10 +29,39 @@ export interface AiOutput {
   confidence: number;
 }
 
-const VALID_INTENTS: readonly AiIntent[] = ["order", "inquiry", "unknown"];
+const VALID_INTENTS: readonly AiIntent[] = ["order", "inquiry", "refund", "unknown"];
 
+// Refund is checked before order: "refund for order #1234" contains "order".
+const REFUND_RE = /\b(refund|refunds|return|returns|money\s+back|chargeback)\b/i;
 const ORDER_RE = /\b(buy|purchase|order|reserve|book|get\s+\d+|want\s+\d+|need\s+\d+)/i;
 const INQUIRY_RE = /\b(stock|price|prices|inventory|available|catalog|do\s+you\s+have|what.s\s+the\s+price)\b/i;
+
+/**
+ * Extract the order reference from a refund request: "#1234", "order 1234",
+ * "ORD-1795560713700-2756", … Returns the bare reference string or null.
+ */
+export function extractOrderRef(text: string): string | null {
+  const ord = text.match(/\bORD-[A-Za-z0-9-]+/i);
+  if (ord) return ord[0].toUpperCase();
+  const m = text.match(/(?:order\s*#?\s*|#)([A-Za-z0-9][A-Za-z0-9-]*)/i);
+  return m ? m[1] : null;
+}
+
+/**
+ * Extract a product name from a quantity-less inquiry like
+ * "What is the stock for Product B?" or "price of Product A".
+ * Returns the candidate query string or null when nothing usable remains.
+ */
+export function extractInquiryQuery(text: string): string | null {
+  const m = text.match(
+    /(?:stock|price|prices|inventory|availability|available|catalog|do\s+you\s+have)\s+(?:for|of|on|in|the)?\s*(.+)$/i,
+  );
+  const raw = (m ? m[1] : text).replace(/[?!.]+$/g, "").trim();
+  if (!raw) return null;
+  // Drop leading question filler that leaves no product to search for.
+  const cleaned = raw.replace(/^(is|are|the|a|an|your|you|have|any|left|remaining)\s+/i, "").trim();
+  return cleaned.length >= 2 ? cleaned : null;
+}
 
 /**
  * Extract (quantity, name) pairs from free text. Handles the common forms a
@@ -53,6 +83,7 @@ export function extractItems(text: string): AiOrderItem[] {
 
 export function parseIntent(text: string): { intent: AiIntent; confidence: number } {
   const t = text.toLowerCase();
+  if (REFUND_RE.test(t)) return { intent: "refund", confidence: 0.85 };
   if (ORDER_RE.test(t)) return { intent: "order", confidence: 0.9 };
   if (INQUIRY_RE.test(t)) return { intent: "inquiry", confidence: 0.8 };
   return { intent: "unknown", confidence: 0.4 };
@@ -152,7 +183,7 @@ export class AiOrchestratorService {
     }
     try {
       const prompt =
-        'You extract a shopping intent from a WhatsApp message. Reply ONLY with compact JSON: {"intent":"order"|"inquiry"|"unknown","items":[{"name"?:string,"sku"?:string,"quantity":number}],"confidence":0.0-1.0}. No other text.';
+        'You extract a shopping intent from a WhatsApp message. Reply ONLY with compact JSON: {"intent":"order"|"inquiry"|"refund"|"unknown","items":[{"name"?:string,"sku"?:string,"quantity":number}],"confidence":0.0-1.0}. Use "refund" for refund/return requests. No other text.';
       const res = await fetch(`${base.replace(/\/+$/, "")}/chat/completions`, {
         method: "POST",
         headers: { "Authorization": `Bearer ${key}`, "content-type": "application/json" },

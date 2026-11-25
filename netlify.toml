@@ -6,8 +6,14 @@
 [build.environment]
   NODE_VERSION = "20"
   # Same-origin: the function is reached via the redirects below.
-  NEXT_PUBLIC_API_URL = "."
+  # Must be root-relative ("/") or absolute — a relative "." resolves
+  # against the current route and breaks nested pages (/dashboard/api/*).
+  NEXT_PUBLIC_API_URL = "/"
   NEXT_PUBLIC_BACKEND_WEBHOOK_URL = "/webhooks/whatsapp"
+  ODOO_URL = "https://chassis-shannon-proceeding-decide.trycloudflare.com"
+  ODOO_DB = "odoo"
+  ODOO_USER = "admin"
+  ODOO_PASSWORD = "admin"
 
 [[redirects]]
   # Static assets and exported pages win first; everything else is the API.

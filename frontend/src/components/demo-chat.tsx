@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { apiFetch, API_BASE } from "@/lib/api";
 import { SendHorizontal } from "lucide-react";
 
@@ -19,10 +19,20 @@ interface Bubble {
 
 export function DemoChat({ starter }: { starter: string }) {
   const [text, setText] = useState(starter);
+  const inputRef = useRef<HTMLInputElement>(null);
   const [log, setLog] = useState<Bubble[]>([
     { id: "welcome", role: "assistant", text: "Hi! I'm the shop assistant. Ask about stock or order something — try “I want 2x Product A”." },
   ]);
   const [busy, setBusy] = useState(false);
+
+  // A suggestion chip was clicked: load it into the input and focus it so
+  // the customer can review/edit before sending. (useState(starter) alone
+  // only captures the first value; later chips would be ignored.)
+  useEffect(() => {
+    if (!starter) return;
+    setText(starter);
+    inputRef.current?.focus();
+  }, [starter]);
 
   async function send() {
     const body = text.trim();
@@ -73,6 +83,7 @@ export function DemoChat({ starter }: { starter: string }) {
       </div>
       <div className="flex gap-2 border-t border-border p-3">
         <input
+          ref={inputRef}
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && send()}

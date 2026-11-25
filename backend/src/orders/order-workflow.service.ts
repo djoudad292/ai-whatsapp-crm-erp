@@ -9,7 +9,9 @@ import { Message } from "../database/entities/message.entity";
 import { Conversation } from "../database/entities/conversation.entity";
 import { AuditLog } from "../database/entities/audit-log.entity";
 import { IntegrationEvent } from "../database/entities/integration-event.entity";
-import { AiOrchestratorService, AiIntent } from "../ai/ai.orchestrator.service";
+import { ApprovalRequest } from "../database/entities/approval-request.entity";
+import { Order } from "../database/entities/order.entity";
+import { AiOrchestratorService, AiIntent, extractInquiryQuery, extractOrderRef } from "../ai/ai.orchestrator.service";
 import { ToolsRegistry, ToolContext } from "../ai/tools.registry";
 
 export interface OrderWorkflowResult {
@@ -69,8 +71,20 @@ export class OrderWorkflowService {
         const result = await this.processOrderIntent(ctx, phone, items, correlationId);
         await this.markWebhookProcessed(webhookEvent);
         return result;
-      } else if (intent === "inquiry" && items.length > 0) {
-        await this.processInquiryIntent(ctx, phone, items, correlationId);
+      } else if (intent === "refund") {
+        const result = await this.processRefundIntent(ctx, phone, text, correlationId);
+        await this.markWebhookProcessed(webhookEvent);
+        return result;
+      } else if (intent === "inquiry") {
+        // Quantity-less inquiries ("stock for Product B?") carry no items;
+        // fall back to extracting the product name from the text.
+        const queries = items.length > 0 ? items : [{ name: extractInquiryQuery(text) ?? "", quantity: 1 }];
+        if (!queries[0].name) {
+          await this.sendFallbackMessage(ctx, "I can help you place orders or check product availability. Try saying something like 'I want 2x Product A' or 'What's the stock for Product B?'");
+          await this.markWebhookProcessed(webhookEvent);
+          return { success: true, intent, items: [] };
+        }
+        await this.processInquiryIntent(ctx, phone, queries, correlationId);
         await this.markWebhookProcessed(webhookEvent);
         return { success: true, intent, items: [] };
       } else {
@@ -174,6 +188,75 @@ export class OrderWorkflowService {
     if (responses.length > 0) {
       await this.sendOutboundMessage(ctx, conversation.id, responses.join("\n"));
     }
+  }
+
+  /**
+   * Refund flow: refunds are money movement, so the AI never executes them.
+   * It raises an ApprovalRequest (type "refund") tied to the customer's own
+   * order and tells the customer a human will review it. The approvals
+   * dashboard + `refundsRequested` metric both read from that table.
+   */
+  private async processRefundIntent(
+    ctx: ToolContext,
+    phone: string,
+    text: string,
+    correlationId: string,
+  ): Promise<OrderWorkflowResult> {
+    const conversation = await this.getOrCreateConversation(phone);
+    const ref = extractOrderRef(text);
+
+    if (!ref) {
+      await this.sendOutboundMessage(
+        ctx,
+        conversation.id,
+        "Happy to help with a refund. Could you share the order number? For example: “I need a refund for order #1234”.",
+      );
+      return { success: false, intent: "refund", error: "Missing order reference" };
+    }
+
+    const order = await this.ds.getRepository(Order).findOne({ where: { orderNumber: ref } });
+    // Ownership check: never confirm an order that is not the sender's, and
+    // do not leak whether it exists.
+    const customer = await this.ds.getRepository(Customer).findOne({ where: { phone } });
+    if (!order || !customer || order.customerId !== customer.id) {
+      await this.sendOutboundMessage(
+        ctx,
+        conversation.id,
+        `I couldn't find order ${ref} in your account. Please double-check the order number.`,
+      );
+      return { success: false, intent: "refund", error: `Order not found for customer: ${ref}` };
+    }
+
+    await this.ds.getRepository(ApprovalRequest).save(
+      this.ds.getRepository(ApprovalRequest).create({
+        orderId: order.id,
+        type: "refund",
+        reason: `Refund requested via chat: "${text.slice(0, 200)}"`,
+        amount: order.total,
+        status: "pending",
+      } as any),
+    );
+    await this.ds.getRepository(AuditLog).save(
+      this.ds.getRepository(AuditLog).create({
+        actor: "ai",
+        source: "workflow",
+        action: "create",
+        entity: "approval_request",
+        entityId: order.id,
+        inputSummary: JSON.stringify({ type: "refund", orderNumber: ref, amount: order.total }).slice(0, 300),
+        result: "success",
+        success: true,
+        correlationId: ctx.correlationId,
+        note: "refund approval requested",
+      } as any),
+    );
+
+    await this.sendOutboundMessage(
+      ctx,
+      conversation.id,
+      `Refund request for order ${order.orderNumber} (${order.total} ${order.currency}) has been raised and is awaiting human approval. Our team will review it and get back to you here.`,
+    );
+    return { success: true, intent: "refund", orderId: order.id };
   }
 
   private async upsertCustomerByPhone(phone: string): Promise<Customer | null> {

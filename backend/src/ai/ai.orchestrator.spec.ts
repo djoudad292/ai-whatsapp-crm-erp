@@ -2,7 +2,9 @@ import { describe, expect, it } from "vitest";
 import {
   AiOrchestratorService,
   AiOutputSchema,
+  extractInquiryQuery,
   extractItems,
+  extractOrderRef,
   parseIntent,
 } from "./ai.orchestrator.service";
 import { AiValidationError } from "./ai.errors";
@@ -18,6 +20,11 @@ describe("parseIntent", () => {
     expect(parseIntent("What is the stock for Product B?").intent).toBe("inquiry");
     expect(parseIntent("price of Product A").intent).toBe("inquiry");
   });
+  it("detects refund intent, incl. 'refund for order #…' (regression)", () => {
+    expect(parseIntent("I need a refund for order #1234").intent).toBe("refund");
+    expect(parseIntent("I want to return this item").intent).toBe("refund");
+    expect(parseIntent("money back please").intent).toBe("refund");
+  });
   it("falls back to unknown", () => {
     expect(parseIntent("hello there").intent).toBe("unknown");
     expect(parseIntent("").intent).toBe("unknown");
@@ -31,6 +38,22 @@ describe("extractItems", () => {
   });
   it("returns [] when no quantity present", () => {
     expect(extractItems("What is the stock for Product B?")).toEqual([]);
+  });
+});
+
+describe("extractOrderRef", () => {
+  it("pulls the order reference from refund phrasing", () => {
+    expect(extractOrderRef("I need a refund for order #1234")).toBe("1234");
+    expect(extractOrderRef("refund ORD-1795560713700-2756")).toBe("ORD-1795560713700-2756");
+    expect(extractOrderRef("I want a refund")).toBeNull();
+  });
+});
+
+describe("extractInquiryQuery", () => {
+  it("extracts the product name from quantity-less inquiries", () => {
+    expect(extractInquiryQuery("What is the stock for Product B?")).toBe("Product B");
+    expect(extractInquiryQuery("price of Product A")).toBe("Product A");
+    expect(extractInquiryQuery("do you have Product C")).toBe("Product C");
   });
 });
 

@@ -16,6 +16,10 @@ export default function Login() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError("");
+    if (!username.trim() || !password) {
+      setError("Enter your username and password to sign in.");
+      return;
+    }
     setLoading(true);
     try {
       const data = await apiFetch<{ token: string; role: string; sub: string }>("/api/auth/login", {
@@ -44,7 +48,7 @@ export default function Login() {
             Welcome back to the WhatsApp CRM dashboard
           </p>
         </div>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} noValidate className="space-y-4">
           {error && (
             <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
               {error}
