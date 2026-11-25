@@ -38,6 +38,13 @@ function databaseConfig(configService: ConfigService) {
     migrations: [__dirname + "/migrations/*.js"],
     migrationsRun: false,
     logging: configService.get<string>("NODE_ENV") !== "production",
+    // manualInitialization: true prevents TypeORM from auto-calling
+    // DataSource.initialize() during onModuleInit. On serverless hosts without
+    // a provisioned PostgreSQL, this avoids ~27s of connection retries that
+    // would otherwise block route registration. The DataSource stays
+    // uninitialized; database endpoints fail gracefully, non-database endpoints
+    // (e.g. /api/health) work immediately.
+    manualInitialization: true,
     ssl:
       configService.get<string>("DATABASE_SSL") === "true"
         ? { rejectUnauthorized: false }

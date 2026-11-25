@@ -16,8 +16,9 @@ async function createHandler(): Promise<Handler> {
   const app = await NestFactory.create(AppModule, { logger: ["error", "warn"] });
   app.enableCors({ origin: true });
   // app.init() runs onModuleInit hooks, including TypeORM's DataSource.initialize().
-  // On serverless hosts without a provisioned PostgreSQL, the DB connection will
-  // fail. Catch it so the HTTP server still starts and non-database endpoints work.
+  // retryAttempts: 0 makes it fail fast when no PostgreSQL is reachable; the
+  // try/catch below lets the HTTP server start anyway so non-database endpoints
+  // (e.g. /api/health) work immediately.
   try {
     await app.init();
   } catch (err) {
