@@ -43,7 +43,20 @@ export class WebhooksController {
     }
 
     const payload = validation.payload;
-    const result = await this.ds.transaction(async (manager) => {
+
+    // If the database is not reachable (serverless host without provisioned
+    // PostgreSQL), acknowledge the webhook with 202 instead of failing with 500.
+    // The message is accepted but not persisted until a database is configured.
+    if (!this.ds.isInitialized) {
+      return {
+        status: "accepted",
+        note: "database not configured; webhook acknowledged but not persisted",
+      };
+    }
+
+    let result;
+    try {
+      result = await this.ds.transaction(async (manager) => {
       const webhookRepo = manager.getRepository(WebhookEvent);
       const conversationRepo = manager.getRepository(Conversation);
       const messageRepo = manager.getRepository(Message);
@@ -121,6 +134,14 @@ export class WebhooksController {
     });
 
     return { status: "ok", ...result };
+    } catch (err: any) {
+      // Non-fatal: acknowledge the webhook even if persistence fails.
+      console.error("Webhook persistence failed:", err.message);
+      return {
+        status: "accepted",
+        note: "database error; webhook acknowledged but not persisted",
+      };
+    }
   }
 
   /**
