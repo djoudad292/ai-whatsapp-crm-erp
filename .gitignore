@@ -38,3 +38,4 @@ backend/config.json
 .netlify/
 frontend/.next/
 frontend/out/
+.playwright-mcp/
