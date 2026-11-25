@@ -1,8 +1,13 @@
 export default {
   esbuild: {
     external: [
+      "@nestjs/core",
+      "@nestjs/common",
+      "@nestjs/config",
+      "@nestjs/typeorm",
       "@nestjs/microservices",
       "@nestjs/websockets",
+      "@nestjs/bullmq",
       "@grpc/grpc-js",
       "@grpc/proto-loader",
       "amqplib",
@@ -11,6 +16,14 @@ export default {
       "kafkajs",
       "mqtt",
       "redis",
+      "bullmq",
+      "ioredis",
+      "pg",
+      "typeorm",
+      "class-transformer",
+      "class-validator",
+      "reflect-metadata",
+      "rxjs",
     ],
   },
 };
