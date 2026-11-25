@@ -2,7 +2,6 @@ import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { DataSource } from "typeorm";
-import { getDataSourceToken } from "@nestjs/typeorm";
 
 import { Customer } from "./entities/customer.entity";
 import { Product } from "./entities/product.entity";
@@ -49,34 +48,14 @@ function databaseConfig(configService: ConfigService) {
 @Module({
   imports: [
     ConfigModule,
-    // forRootAsync is intentionally NOT used: it auto-calls DataSource.initialize()
-    // and crashes the NestJS bootstrap when the database is unreachable (e.g. on
-    // serverless hosts without a provisioned PostgreSQL). Instead we create the
-    // DataSource manually below and attempt initialization with a try/catch so
-    // the API stays functional even when the database is temporarily unavailable.
+    TypeOrmModule.forRootAsync({
+      imports: [ConfigModule],
+      inject: [ConfigService],
+      useFactory: databaseConfig,
+    }),
     TypeOrmModule.forFeature(entities),
   ],
-  providers: [
-    {
-      provide: getDataSourceToken(),
-      useFactory: (configService: ConfigService) => new DataSource(databaseConfig(configService)),
-      inject: [ConfigService],
-    },
-    {
-      provide: "DATA_SOURCE_INIT",
-      useFactory: async (ds: DataSource) => {
-        try {
-          await ds.initialize();
-        } catch (err) {
-          // Non-fatal: the API remains usable for non-database endpoints.
-          // eslint-disable-next-line no-console
-          console.error("Database connection failed (non-fatal):", (err as Error).message);
-        }
-      },
-      inject: [getDataSourceToken()],
-    },
-  ],
-  exports: [getDataSourceToken(), TypeOrmModule],
+  exports: [TypeOrmModule],
 })
 export class DatabaseModule {}
 
